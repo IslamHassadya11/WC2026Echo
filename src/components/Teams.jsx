@@ -1,217 +1,157 @@
 import { useState } from 'react'
+import Flag from './Flag'
 import { TEAMS, GROUP_TEAMS, CONF_META } from '../data/data'
 import { calcStandings } from '../utils/standings'
 
-function TeamCard({ team, standing, rank }) {
-  const conf = CONF_META[team.conf] || {}
-  const statusColors = [
-    'bg-green-500/20 border-green-500/30 text-green-400',
-    'bg-blue-500/20 border-blue-500/30 text-blue-400',
-    'bg-amber-500/20 border-amber-500/30 text-amber-400',
-    'bg-red-500/20 border-red-500/30 text-red-400',
-  ]
-  const statusLabels = ['1st', '2nd', '3rd', '4th']
-
-  const formColor = (f) => f === 'W' ? 'bg-green-500/25 text-green-400' : f === 'L' ? 'bg-red-500/25 text-red-400' : 'bg-yellow-500/25 text-yellow-400'
-
-  return (
-    <div className="card p-4 flex flex-col gap-3 hover:border-wc-accent/30 transition-all duration-200 hover:-translate-y-0.5">
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <span className="text-4xl leading-none">{team.flag}</span>
-          <div>
-            <div className="font-black text-white text-sm leading-tight">{team.name}</div>
-            <div className={`text-[10px] font-bold conf-badge mt-1 ${conf.bg || ''} ${conf.border || ''} ${conf.color || ''}`}>
-              {team.conf}
-            </div>
-          </div>
-        </div>
-        <div className={`text-[11px] font-black px-2 py-1 rounded-lg border ${statusColors[rank] || statusColors[3]}`}>
-          {statusLabels[rank] || `${rank + 1}th`}
-        </div>
-      </div>
-
-      {/* Group badge */}
-      <div className="flex items-center gap-2">
-        <div className="text-[10px] text-white/30 uppercase tracking-widest">Group</div>
-        <div className="w-5 h-5 rounded-md bg-wc-accent/20 border border-wc-accent/30 flex items-center justify-center text-[10px] font-black text-wc-accent">
-          {team.group}
-        </div>
-        <div className="text-[10px] text-white/20">FIFA Rank #{team.rank}</div>
-      </div>
-
-      {/* Stats */}
-      {standing && (
-        <>
-          <div className="grid grid-cols-5 gap-1 text-center text-xs">
-            {[
-              { label: 'P', value: standing.p, color: 'text-white/60' },
-              { label: 'W', value: standing.w, color: 'text-green-400' },
-              { label: 'D', value: standing.d, color: 'text-yellow-400' },
-              { label: 'L', value: standing.l, color: 'text-red-400' },
-              { label: 'PTS', value: standing.pts, color: 'text-wc-accent font-black' },
-            ].map(s => (
-              <div key={s.label} className="bg-wc-navy rounded-lg py-1.5 border border-wc-border">
-                <div className={`font-bold ${s.color}`}>{s.value}</div>
-                <div className="text-[9px] text-white/20 uppercase">{s.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* GF / GA / GD */}
-          <div className="flex gap-2 text-xs">
-            <div className="flex-1 bg-wc-navy rounded-lg py-1 px-2 border border-wc-border text-center">
-              <span className="text-white/30">GF </span>
-              <span className="font-bold text-white/70">{standing.gf}</span>
-            </div>
-            <div className="flex-1 bg-wc-navy rounded-lg py-1 px-2 border border-wc-border text-center">
-              <span className="text-white/30">GA </span>
-              <span className="font-bold text-white/70">{standing.ga}</span>
-            </div>
-            <div className="flex-1 bg-wc-navy rounded-lg py-1 px-2 border border-wc-border text-center">
-              <span className="text-white/30">GD </span>
-              <span className={`font-bold ${standing.gd > 0 ? 'text-green-400' : standing.gd < 0 ? 'text-red-400' : 'text-white/30'}`}>
-                {standing.gd > 0 ? '+' : ''}{standing.gd}
-              </span>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 export default function Teams({ groupMatches }) {
-  const [conf, setConf] = useState('all')
-  const [group, setGroup] = useState('all')
-  const [sort, setSort] = useState('group')
+  const [conf, setConf]     = useState('all')
+  const [group, setGroup]   = useState('all')
+  const [sort, setSort]     = useState('group')
   const [search, setSearch] = useState('')
 
-  // Build standings map
-  const standingsMap = {}
-  const rankMap = {}
-  Object.entries(GROUP_TEAMS).forEach(([g, tids]) => {
-    const st = calcStandings(tids, groupMatches[g])
-    st.forEach((s, i) => {
-      standingsMap[s.id] = s
-      rankMap[s.id] = i
+  // Build standings
+  const stMap = {}, rankMap = {}
+  Object.entries(GROUP_TEAMS).forEach(([g, ids]) => {
+    calcStandings(ids, groupMatches[g]).forEach((s, i) => {
+      stMap[s.id] = s; rankMap[s.id] = i
     })
   })
 
-  const confs = ['all', ...Object.keys(CONF_META)]
-  const groups = ['all', ...Object.keys(GROUP_TEAMS)]
-
   let teams = Object.values(TEAMS)
-
-  if (search) teams = teams.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.short.toLowerCase().includes(search.toLowerCase())
-  )
-  if (conf !== 'all') teams = teams.filter(t => t.conf === conf)
+  if (search) teams = teams.filter(t => t.name.toLowerCase().includes(search.toLowerCase()) || t.short.toLowerCase().includes(search.toLowerCase()))
+  if (conf  !== 'all') teams = teams.filter(t => t.conf  === conf)
   if (group !== 'all') teams = teams.filter(t => t.group === group)
-
-  teams = [...teams].sort((a, b) => {
-    if (sort === 'group') {
-      const gCmp = a.group.localeCompare(b.group)
-      if (gCmp !== 0) return gCmp
-      return (rankMap[a.id] ?? 9) - (rankMap[b.id] ?? 9)
-    }
-    if (sort === 'pts') return (standingsMap[b.id]?.pts ?? 0) - (standingsMap[a.id]?.pts ?? 0)
-    if (sort === 'rank') return a.rank - b.rank
-    if (sort === 'name') return a.name.localeCompare(b.name)
-    return 0
+  teams = [...teams].sort((a,b) => {
+    if (sort==='group') { const gc=a.group.localeCompare(b.group); return gc||((rankMap[a.id]??9)-(rankMap[b.id]??9)) }
+    if (sort==='pts')   return (stMap[b.id]?.pts??0)-(stMap[a.id]?.pts??0)
+    if (sort==='rank')  return a.rank-b.rank
+    return a.name.localeCompare(b.name)
   })
 
-  // Confederation summary
-  const confSummary = Object.entries(CONF_META).map(([key, meta]) => ({
-    key, meta,
-    count: Object.values(TEAMS).filter(t => t.conf === key).length,
-  }))
+  const pillStyle = (c) => ({
+    display:'inline-flex', alignItems:'center', padding:'3px 9px', borderRadius:7, fontSize:10, fontWeight:800,
+    background: c.bg, border:`1px solid ${c.border}`, color: c.color,
+  })
+
+  const rankColors = [
+    { bg:'rgba(124,34,232,0.15)', border:'rgba(124,34,232,0.35)', c:'#A855F7', label:'1st' },
+    { bg:'rgba(59,130,246,0.12)', border:'rgba(59,130,246,0.3)',  c:'#60A5FA', label:'2nd' },
+    { bg:'rgba(249,115,22,0.12)', border:'rgba(249,115,22,0.28)', c:'#FB923C', label:'3rd' },
+    { bg:'rgba(255,255,255,0.05)',border:'rgba(255,255,255,0.1)', c:'rgba(255,255,255,0.3)',label:'4th' },
+  ]
+
+  const filterBtn = (key, label, active, onClick) => (
+    <button key={key} onClick={onClick} style={{
+      padding:'6px 12px', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap',
+      background: active ? 'linear-gradient(135deg,#7C22E8,#DB2777)' : 'rgba(255,255,255,0.05)',
+      border: active ? 'none' : '1px solid #2D2A6E',
+      color: active ? 'white' : 'rgba(255,255,255,0.4)',
+    }}>{label}</button>
+  )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
       <div>
-        <h2 className="text-2xl font-black text-white">All Teams</h2>
-        <p className="text-white/40 text-sm mt-0.5">48 nations · 6 confederations · 12 groups</p>
+        <h2 style={{ fontWeight:900, fontSize:24, color:'white' }}>All 48 Teams</h2>
+        <p style={{ color:'rgba(255,255,255,0.4)', fontSize:13, marginTop:4 }}>6 confederations · 12 groups · FIFA World Cup 2026</p>
       </div>
 
-      {/* Confederation banner */}
-      <div className="flex flex-wrap gap-2">
-        {confSummary.map(({ key, meta, count }) => (
-          <button
-            key={key}
-            onClick={() => setConf(conf === key ? 'all' : key)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-bold transition-all
-              ${conf === key ? `${meta.bg} ${meta.border} ${meta.color}` : 'bg-wc-card border-wc-border text-white/40 hover:text-white'}`}
-          >
-            <span className="font-black">{count}</span>
-            <span className="text-xs">{key}</span>
-          </button>
-        ))}
-        {conf !== 'all' && (
-          <button onClick={() => setConf('all')} className="px-3 py-2 rounded-xl border border-wc-border text-white/30 text-sm hover:text-white transition-colors">
-            ✕ Clear
-          </button>
-        )}
+      {/* Confederation filter */}
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        {filterBtn('all','All Confederations', conf==='all', () => setConf('all'))}
+        {Object.entries(CONF_META).map(([key, m]) => {
+          const count = Object.values(TEAMS).filter(t=>t.conf===key).length
+          return filterBtn(key, `${key} (${count})`, conf===key, () => setConf(conf===key?'all':key))
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Search + filters row */}
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
         <input
-          type="text"
-          placeholder="Search teams..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 bg-wc-card border border-wc-border rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-wc-accent/50 transition-colors"
+          type="text" value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="🔍  Search teams..."
+          style={{ flex:1, minWidth:180, background:'#13113A', border:'1px solid #2D2A6E', borderRadius:10, padding:'10px 14px', fontSize:13, color:'white', outline:'none' }}
+          onFocus={e=>e.target.style.borderColor='#7C22E8'}
+          onBlur={e=>e.target.style.borderColor='#2D2A6E'}
         />
-
-        <div className="flex gap-2">
-          <select
-            value={group}
-            onChange={e => setGroup(e.target.value)}
-            className="bg-wc-card border border-wc-border rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-wc-accent/50 cursor-pointer"
-          >
-            {groups.map(g => (
-              <option key={g} value={g}>{g === 'all' ? 'All Groups' : `Group ${g}`}</option>
-            ))}
-          </select>
-
-          <select
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-            className="bg-wc-card border border-wc-border rounded-xl px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-wc-accent/50 cursor-pointer"
-          >
-            <option value="group">Sort: Group</option>
-            <option value="pts">Sort: Points</option>
-            <option value="rank">Sort: FIFA Rank</option>
-            <option value="name">Sort: Name</option>
-          </select>
-        </div>
+        <select value={group} onChange={e=>setGroup(e.target.value)}
+          style={{ background:'#13113A', border:'1px solid #2D2A6E', borderRadius:10, padding:'10px 14px', fontSize:12, color:'rgba(255,255,255,0.7)', outline:'none', cursor:'pointer' }}>
+          <option value="all">All Groups</option>
+          {Object.keys(GROUP_TEAMS).map(g => <option key={g} value={g}>Group {g}</option>)}
+        </select>
+        <select value={sort} onChange={e=>setSort(e.target.value)}
+          style={{ background:'#13113A', border:'1px solid #2D2A6E', borderRadius:10, padding:'10px 14px', fontSize:12, color:'rgba(255,255,255,0.7)', outline:'none', cursor:'pointer' }}>
+          <option value="group">Sort: Group</option>
+          <option value="pts">Sort: Points</option>
+          <option value="rank">Sort: FIFA Rank</option>
+          <option value="name">Sort: Name</option>
+        </select>
       </div>
 
-      {/* Count */}
-      <div className="text-xs text-white/30 font-semibold">
-        Showing {teams.length} of 48 teams
+      <div style={{ fontSize:12, color:'rgba(255,255,255,0.25)', fontWeight:600 }}>
+        {teams.length} of 48 teams
       </div>
 
-      {/* Grid */}
+      {/* Team grid */}
       {teams.length === 0 ? (
-        <div className="text-center py-16 text-white/20">
-          <div className="text-4xl mb-2">🔍</div>
-          <p>No teams found</p>
+        <div style={{ textAlign:'center', padding:'60px 20px', color:'rgba(255,255,255,0.2)' }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>🔍</div>
+          <p style={{ fontSize:14 }}>No teams found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {teams.map(t => (
-            <TeamCard
-              key={t.id}
-              team={t}
-              standing={standingsMap[t.id]}
-              rank={rankMap[t.id] ?? 3}
-            />
-          ))}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:12 }}>
+          {teams.map(t => {
+            const s = stMap[t.id]
+            const r = rankMap[t.id] ?? 3
+            const rc = rankColors[r] || rankColors[3]
+            const cm = CONF_META[t.conf]
+
+            return (
+              <div key={t.id} className="team-card">
+                {/* Flag + name */}
+                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+                  <Flag code={t.flagCode} name={t.name} size="md" />
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontWeight:800, color:'white', fontSize:14, lineHeight:1.2 }}>{t.name}</div>
+                    <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:2 }}>FIFA #{t.rank}</div>
+                  </div>
+                </div>
+
+                {/* Badges */}
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+                  <span style={{ ...pillStyle(cm) }}>{t.conf}</span>
+                  <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 9px', borderRadius:7, fontSize:10, fontWeight:800, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)' }}>
+                    Group {t.group}
+                  </span>
+                  {t.host && (
+                    <span style={{ display:'inline-flex', alignItems:'center', padding:'3px 9px', borderRadius:7, fontSize:10, fontWeight:800, background:'rgba(249,115,22,0.15)', border:'1px solid rgba(249,115,22,0.3)', color:'#F97316' }}>
+                      HOST
+                    </span>
+                  )}
+                </div>
+
+                {/* Position badge */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: s ? 10 : 0 }}>
+                  <span style={{ display:'inline-flex', padding:'4px 10px', borderRadius:8, fontSize:11, fontWeight:900, background:rc.bg, border:`1px solid ${rc.border}`, color:rc.c }}>
+                    {rc.label} in Group
+                  </span>
+                  {s && <span style={{ fontSize:20, fontWeight:900, color:'#A855F7' }}>{s.pts} pts</span>}
+                </div>
+
+                {/* Stats grid */}
+                {s && (
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.07)' }}>
+                    {[['W',s.w,'#4ADE80'],['D',s.d,'#FBBF24'],['L',s.l,'#F87171'],['GD',s.gd>=0?`+${s.gd}`:s.gd,s.gd>0?'#4ADE80':s.gd<0?'#F87171':'rgba(255,255,255,0.3)']].map(([lbl,val,clr])=>(
+                      <div key={lbl} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'6px 4px', textAlign:'center' }}>
+                        <div style={{ fontWeight:900, fontSize:14, color:clr }}>{val}</div>
+                        <div style={{ fontSize:9, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', marginTop:1 }}>{lbl}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
